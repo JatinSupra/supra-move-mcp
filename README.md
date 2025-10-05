@@ -13,7 +13,7 @@ This MCP server gives Claude access to 9-tested Supra Move templates to Generate
 **One-Click Install**
 
 ```bash
-
+curl -fsSL https://raw.githubusercontent.com/JatinSupra/supra-move-mcp/refs/heads/main/setup.sh | bash
 ```
 
 ### If above one doesn't work, Configure Claude Desktop:
@@ -21,6 +21,7 @@ This MCP server gives Claude access to 9-tested Supra Move templates to Generate
 Add to your Claude Desktop config file:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
