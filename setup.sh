@@ -1,3 +1,63 @@
+#!/bin/bash
+
+set -e
+
+echo "╔═══════════════════════════════════════╗"
+echo "║   Supra Move MCP Installer v1.0       ║"
+echo "╔═══════════════════════════════════════╗"
+echo ""
+
+# Detect OS
+OS="$(uname -s)"
+case "${OS}" in
+    Linux*)     MACHINE=Linux;;
+    Darwin*)    MACHINE=Mac;;
+    CYGWIN*|MINGW*|MSYS*) MACHINE=Windows;;
+    *)          MACHINE="UNKNOWN:${OS}"
+esac
+
+echo "[1/6] Detected OS: $MACHINE"
+
+# Set Claude Desktop config path based on OS
+if [ "$MACHINE" = "Mac" ]; then
+    CLAUDE_CONFIG_DIR="$HOME/Library/Application Support/Claude"
+elif [ "$MACHINE" = "Linux" ]; then
+    CLAUDE_CONFIG_DIR="$HOME/.config/Claude"
+elif [ "$MACHINE" = "Windows" ]; then
+    CLAUDE_CONFIG_DIR="$APPDATA/Claude"
+else
+    echo "❌ Unsupported operating system: $MACHINE"
+    exit 1
+fi
+
+CLAUDE_CONFIG_FILE="$CLAUDE_CONFIG_DIR/claude_desktop_config.json"
+
+# Create installation directory
+INSTALL_DIR="$HOME/.supra-mcp"
+echo "[2/6] Creating installation directory: $INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"
+
+# Check Python
+echo "[3/6] Checking Python installation..."
+if ! command -v python3 &> /dev/null; then
+    echo "❌ Python 3 is not installed. Please install Python 3.8+ first."
+    exit 1
+fi
+
+PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
+echo "   ✓ Python $PYTHON_VERSION found"
+
+# Install MCP package
+echo "[4/6] Installing MCP Python package..."
+pip3 install mcp --quiet || {
+    echo "❌ Failed to install MCP package. Try: pip3 install mcp"
+    exit 1
+}
+echo "   ✓ MCP package installed"
+
+# Create the MCP server Python file
+echo "[5/6] Creating Supra MCP server..."
+cat > "$INSTALL_DIR/supra_mcp.py" << 'EOPYTHON'
 #!/usr/bin/env python3
 """
 Production Supra MCP Server - Built from Real Framework Examples
@@ -612,8 +672,6 @@ async def run_server():
             )]
     
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        print("Supra MCP Server - Production Templates Ready", file=sys.stderr)
-        
         await server.run(
             read_stream,
             write_stream,
@@ -632,10 +690,86 @@ def main():
     try:
         asyncio.run(run_server())
     except KeyboardInterrupt:
-        print("\nServer stopped", file=sys.stderr)
+        pass
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
+EOPYTHON
+
+chmod +x "$INSTALL_DIR/supra_mcp.py"
+echo "   ✓ MCP server created at $INSTALL_DIR/supra_mcp.py"
+
+# Configure Claude Desktop
+echo "[6/6] Configuring Claude Desktop..."
+
+# Create config directory if it doesn't exist
+mkdir -p "$CLAUDE_CONFIG_DIR"
+
+# Backup existing config
+if [ -f "$CLAUDE_CONFIG_FILE" ]; then
+    cp "$CLAUDE_CONFIG_FILE" "$CLAUDE_CONFIG_FILE.backup"
+    echo "   ✓ Backed up existing config to $CLAUDE_CONFIG_FILE.backup"
+fi
+
+# Create or update config
+if [ -f "$CLAUDE_CONFIG_FILE" ]; then
+    # Config exists, merge with existing
+    python3 << EOPYTHON
+import json
+import sys
+
+config_file = "$CLAUDE_CONFIG_FILE"
+install_dir = "$INSTALL_DIR"
+
+try:
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+except:
+    config = {}
+
+if 'mcpServers' not in config:
+    config['mcpServers'] = {}
+
+config['mcpServers']['supra'] = {
+    'command': 'python3',
+    'args': [f'{install_dir}/supra_mcp.py']
+}
+
+with open(config_file, 'w') as f:
+    json.dump(config, f, indent=2)
+
+print("   ✓ Updated Claude Desktop config")
+EOPYTHON
+else
+    # Create new config
+    cat > "$CLAUDE_CONFIG_FILE" << EOJSON
+{
+  "mcpServers": {
+    "supra": {
+      "command": "python3",
+      "args": ["$INSTALL_DIR/supra_mcp.py"]
+    }
+  }
+}
+EOJSON
+    echo "   ✓ Created new Claude Desktop config"
+fi
+
+echo ""
+echo "╔═══════════════════════════════════════╗"
+echo "║     Installation Complete! ✓          ║"
+echo "╔═══════════════════════════════════════╗"
+echo ""
+echo "📁 Installed to: $INSTALL_DIR"
+echo "⚙️  Config file: $CLAUDE_CONFIG_FILE"
+echo ""
+echo "Next steps:"
+echo "1. Restart Claude Desktop application"
+echo "2. Look for 🔌 icon in Claude to verify MCP is connected"
+echo "3. Test with: 'List available Supra Move templates'"
+echo ""
+echo "Uninstall: rm -rf $INSTALL_DIR && remove 'supra' entry from $CLAUDE_CONFIG_FILE"
+echo ""
