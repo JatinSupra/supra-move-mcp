@@ -1,13 +1,10 @@
 #!/bin/bash
-
 set -e
-
 echo "╔═══════════════════════════════════════╗"
 echo "║   Supra Move MCP Installer v1.0       ║"
 echo "╔═══════════════════════════════════════╗"
 echo ""
 
-# Detect OS
 OS="$(uname -s)"
 case "${OS}" in
     Linux*)     MACHINE=Linux;;
@@ -17,8 +14,6 @@ case "${OS}" in
 esac
 
 echo "[1/6] Detected OS: $MACHINE"
-
-# Set Claude Desktop config path based on OS
 if [ "$MACHINE" = "Mac" ]; then
     CLAUDE_CONFIG_DIR="$HOME/Library/Application Support/Claude"
 elif [ "$MACHINE" = "Linux" ]; then
@@ -29,15 +24,10 @@ else
     echo "❌ Unsupported operating system: $MACHINE"
     exit 1
 fi
-
 CLAUDE_CONFIG_FILE="$CLAUDE_CONFIG_DIR/claude_desktop_config.json"
-
-# Create installation directory
 INSTALL_DIR="$HOME/.supra-mcp"
 echo "[2/6] Creating installation directory: $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
-
-# Check Python
 echo "[3/6] Checking Python installation..."
 if ! command -v python3 &> /dev/null; then
     echo "❌ Python 3 is not installed. Please install Python 3.8+ first."
@@ -46,16 +36,12 @@ fi
 
 PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
 echo "   ✓ Python $PYTHON_VERSION found"
-
-# Install MCP package
 echo "[4/6] Installing MCP Python package..."
 pip3 install mcp --quiet || {
     echo "❌ Failed to install MCP package. Try: pip3 install mcp"
     exit 1
 }
 echo "   ✓ MCP package installed"
-
-# Create the MCP server Python file
 echo "[5/6] Creating Supra MCP server..."
 cat > "$INSTALL_DIR/supra_mcp.py" << 'EOPYTHON'
 #!/usr/bin/env python3
@@ -701,22 +687,14 @@ EOPYTHON
 
 chmod +x "$INSTALL_DIR/supra_mcp.py"
 echo "   ✓ MCP server created at $INSTALL_DIR/supra_mcp.py"
-
-# Configure Claude Desktop
 echo "[6/6] Configuring Claude Desktop..."
 
-# Create config directory if it doesn't exist
 mkdir -p "$CLAUDE_CONFIG_DIR"
-
-# Backup existing config
 if [ -f "$CLAUDE_CONFIG_FILE" ]; then
     cp "$CLAUDE_CONFIG_FILE" "$CLAUDE_CONFIG_FILE.backup"
     echo "   ✓ Backed up existing config to $CLAUDE_CONFIG_FILE.backup"
 fi
-
-# Create or update config
 if [ -f "$CLAUDE_CONFIG_FILE" ]; then
-    # Config exists, merge with existing
     python3 << EOPYTHON
 import json
 import sys
@@ -744,7 +722,6 @@ with open(config_file, 'w') as f:
 print("   ✓ Updated Claude Desktop config")
 EOPYTHON
 else
-    # Create new config
     cat > "$CLAUDE_CONFIG_FILE" << EOJSON
 {
   "mcpServers": {
